@@ -3,264 +3,176 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import datetime
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="SCM Pro | Demand & Supply Planner", layout="wide", page_icon="🏭")
+st.set_page_config(
+    page_title="Letta Earth | Agribusiness Intelligence", 
+    layout="wide", 
+    page_icon="🌍",
+    initial_sidebar_state="expanded"
+)
 
-# --- CUSTOM CSS ---
-st.markdown("""
-<style>
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    .stDataFrame { width: 100%; }
-</style>
-""", unsafe_allow_html=True)
+# --- CUSTOM CSS FOR WIX EMBEDDING ---
+# This removes the top header and footer so it looks native inside your website
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .block-container {padding-top: 1rem;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- HELPER FUNCTIONS (THE ENGINE) ---
+# --- MOCK DATA ENGINE ---
 
-def generate_mock_data():
-    """Generates sample data for the MVP demonstration."""
-    products = ['SKU-101 (Industrial Pump)', 'SKU-102 (Filter Assembly)', 'SKU-103 (Control Valve)']
-    accounts = ['Region North', 'Region South', 'Region East']
-    
-    # 1. Historical Sales Data
-    dates = pd.date_range(start='2024-01-01', periods=12, freq='M')
-    sales_data = []
-    for p in products:
-        base_demand = np.random.randint(50, 150)
-        trend = np.linspace(1, 1.2, 12) # Slight upward trend
-        seasonality = np.random.normal(1, 0.1, 12)
-        sales = (base_demand * trend * seasonality).astype(int)
-        for d, s in zip(dates, sales):
-            sales_data.append({'Date': d, 'Product': p, 'Sales_Qty': s})
-            
-    # 2. Inventory Snapshots (Current State)
-    inventory_data = []
-    for p in products:
-        inventory_data.append({
-            'Product': p,
-            'On_Hand_DC': np.random.randint(200, 500), # Central Warehouse
-            'On_Order_PO': np.random.randint(0, 200),  # Coming from Supplier
-            'Lead_Time_Days': np.random.randint(15, 45),
-            'Unit_Cost': np.random.randint(50, 200)
-        })
-
-    # 3. Account Demand (For Allocation)
-    allocation_data = []
-    for p in products:
-        for acc in accounts:
-            allocation_data.append({
-                'Product': p,
-                'Account': acc,
-                'Current_Stock_at_Account': np.random.randint(10, 50),
-                'Forecast_Next_30_Days': np.random.randint(30, 80)
-            })
-
-    return pd.DataFrame(sales_data), pd.DataFrame(inventory_data), pd.DataFrame(allocation_data)
-
-def calculate_forecast(df_sales, horizon_months=3):
-    """Simple Moving Average Forecast for MVP."""
-    forecasts = []
-    products = df_sales['Product'].unique()
-    
-    for p in products:
-        p_data = df_sales[df_sales['Product'] == p].sort_values('Date')
-        # Simple 3-month moving average
-        last_3_avg = p_data['Sales_Qty'].tail(3).mean()
-        
-        # Generate future dates
-        last_date = p_data['Date'].max()
-        future_dates = pd.date_range(start=last_date + pd.DateOffset(months=1), periods=horizon_months, freq='M')
-        
-        for d in future_dates:
-            forecasts.append({'Date': d, 'Product': p, 'Forecast_Qty': int(last_3_avg)})
-            
-    return pd.DataFrame(forecasts)
-
-def supply_planning_logic(inventory_df, forecast_df, target_dos):
-    """
-    Calculates Net Requirements based on Target Days of Supply (DOS).
-    Logic: Target Stock = (Daily Demand * Target DOS)
-    """
-    # Get total forecasted demand next 30 days (approx)
-    monthly_forecast = forecast_df.groupby('Product')['Forecast_Qty'].mean().reset_index()
-    monthly_forecast.rename(columns={'Forecast_Qty': 'Avg_Monthly_Demand'}, inplace=True)
-    
-    merged = pd.merge(inventory_df, monthly_forecast, on='Product')
-    
-    # Industrial Engineering Math
-    merged['Daily_Demand'] = merged['Avg_Monthly_Demand'] / 30
-    merged['Target_Stock_Qty'] = (merged['Daily_Demand'] * target_dos).astype(int)
-    merged['Total_Pipeline'] = merged['On_Hand_DC'] + merged['On_Order_PO']
-    
-    # The "Net Requirement" Formula
-    merged['Net_Requirement'] = merged['Target_Stock_Qty'] - merged['Total_Pipeline']
-    merged['Net_Requirement'] = merged['Net_Requirement'].apply(lambda x: max(0, x)) # No negative orders
-    
-    merged['Inventory_Health'] = np.where(merged['Total_Pipeline'] < merged['Target_Stock_Qty'], 'Understocked', 
-                                 np.where(merged['Total_Pipeline'] > merged['Target_Stock_Qty'] * 1.5, 'Overstocked', 'Healthy'))
-    
-    return merged
-
-def allocation_logic(allocation_df, product_selected, available_to_allocate):
-    """
-    Allocates limited stock to accounts based on keeping them equal in Days of Supply (Fair Share).
-    """
-    df = allocation_df[allocation_df['Product'] == product_selected].copy()
-    
-    # Calculate Needs
-    df['Daily_Burn_Rate'] = df['Forecast_Next_30_Days'] / 30
-    df['Current_DOS'] = df['Current_Stock_at_Account'] / df['Daily_Burn_Rate']
-    
-    total_forecast = df['Forecast_Next_30_Days'].sum()
-    
-    # Proportional Allocation Strategy (Simple version)
-    # Share = (Account Forecast / Total Forecast) * Available Qty
-    df['Allocated_Qty'] = (df['Forecast_Next_30_Days'] / total_forecast) * available_to_allocate
-    df['Allocated_Qty'] = df['Allocated_Qty'].astype(int)
-    
-    # Projected DOS after allocation
-    df['Projected_Stock'] = df['Current_Stock_at_Account'] + df['Allocated_Qty']
-    df['Projected_DOS'] = df['Projected_Stock'] / df['Daily_Burn_Rate']
-    
+def get_listed_commodities():
+    # In real life, use yfinance library here
+    dates = pd.date_range(start="2024-01-01", end="2025-05-20", freq="D")
+    df = pd.DataFrame(index=dates)
+    df['Cocoa ($/MT)'] = np.linspace(4000, 9000, len(dates)) + np.random.normal(0, 100, len(dates))
+    df['Wheat ($/Bushel)'] = np.linspace(600, 550, len(dates)) + np.random.normal(0, 10, len(dates))
     return df
 
-# --- MAIN APP UI ---
-
-st.sidebar.title("📦 SupplyChain.ai")
-module = st.sidebar.radio("Navigate Module", ["Dashboard", "1. Demand Planning", "2. Supply Planning", "3. Inventory Allocation"])
-
-# Load Data
-df_sales, df_inv, df_alloc = generate_mock_data()
-
-if module == "Dashboard":
-    st.title("Executive S&OP Dashboard")
-    st.markdown("### High Level Overview")
+def get_hazelnut_data():
+    """
+    Simulating the 2025 Frost Event in Giresun.
+    Unlisted data usually comes from local exchanges (Borsasi) or field reports.
+    """
+    dates = pd.date_range(start="2024-09-01", end="2025-05-20", freq="W") # Weekly prices
     
-    col1, col2, col3 = st.columns(3)
-    total_inv_value = (df_inv['On_Hand_DC'] * df_inv['Unit_Cost']).sum()
-    total_demand = calculate_forecast(df_sales)['Forecast_Qty'].sum()
-    
-    with col1:
-        st.metric(label="Total Inventory Value", value=f"${total_inv_value:,.0f}")
-    with col2:
-        st.metric(label="Forecasted Demand (3 Mo)", value=f"{total_demand:,.0f} Units")
-    with col3:
-        st.metric(label="Active SKUs", value=len(df_inv))
+    # Simulating price spike after April 2025 Frost
+    prices = []
+    base_price = 100 # TRY/kg
+    for d in dates:
+        if d.month >= 4 and d.year == 2025:
+            # Frost impact: Price jumps significantly
+            base_price += np.random.randint(2, 5) 
+        else:
+            base_price += np.random.normal(0, 1)
+        prices.append(base_price)
         
-    st.markdown("---")
-    st.subheader("Sales History vs Forecast Trend")
-    
-    # Generate forecast for chart
-    df_fcst = calculate_forecast(df_sales)
-    
-    # Combine for chart
-    hist_chart = df_sales.groupby('Date')['Sales_Qty'].sum().reset_index()
-    hist_chart['Type'] = 'Historical'
-    fcst_chart = df_fcst.groupby('Date')['Forecast_Qty'].sum().reset_index().rename(columns={'Forecast_Qty': 'Sales_Qty'})
-    fcst_chart['Type'] = 'Forecast'
-    
-    chart_df = pd.concat([hist_chart, fcst_chart])
-    
-    fig = px.line(chart_df, x='Date', y='Sales_Qty', color='Type', markers=True, 
-                  color_discrete_map={'Historical': '#1f77b4', 'Forecast': '#ff7f0e'})
-    st.plotly_chart(fig, use_container_width=True)
+    df = pd.DataFrame({'Date': dates, 'Price (TRY/kg)': prices})
+    return df
 
-elif module == "1. Demand Planning":
-    st.title("📈 Demand Planning Module")
-    st.info("Uses Moving Average logic to project future demand based on historical trends.")
+def get_climate_risk_data():
+    """
+    Map data for Turkey Hazelnut regions.
+    """
+    regions = [
+        {'Name': 'Giresun', 'Lat': 40.91, 'Lon': 38.38, 'Yield_Risk': 'Critical', 'Temp_Anomaly': -4.5},
+        {'Name': 'Ordu', 'Lat': 40.98, 'Lon': 37.88, 'Yield_Risk': 'High', 'Temp_Anomaly': -3.2},
+        {'Name': 'Trabzon', 'Lat': 41.00, 'Lon': 39.71, 'Yield_Risk': 'Medium', 'Temp_Anomaly': -1.5},
+        {'Name': 'Sakarya', 'Lat': 40.75, 'Lon': 30.38, 'Yield_Risk': 'Low', 'Temp_Anomaly': -0.5},
+    ]
+    return pd.DataFrame(regions)
+
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.image("https://img.icons8.com/ios-filled/100/4a90e2/earth-element.png", width=80)
+st.sidebar.title("Letta Earth")
+st.sidebar.caption("Agribusiness Solutions & Trading")
+
+menu = st.sidebar.radio("Intelligence Modules", [
+    "🌍 Global Market Watch",
+    "🌰 Hazelnut Special Report",
+    "🌦️ Climate & Yield Maps", 
+    "📰 News & Sentiment"
+])
+
+# --- DASHBOARD LOGIC ---
+
+if menu == "🌍 Global Market Watch":
+    st.title("Global Commodity Markets")
+    st.markdown("Real-time tracking of **Listed Commodities** (Stock Market Data).")
     
-    selected_sku = st.selectbox("Select Product to Forecast", df_sales['Product'].unique())
+    # 1. Ticker Tape (Metrics)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Cocoa (ICE)", "$9,240", "+1.2%", help="High volatility due to West Africa supply issues")
+    c2.metric("Wheat (CBOT)", "$580", "-0.5%")
+    c3.metric("Corn", "$430", "+0.1%")
+    c4.metric("Brent Crude", "$82", "+0.4%", help="Affects logistics costs")
+    
+    # 2. Charts
+    st.subheader("Market Trends")
+    df_listed = get_listed_commodities()
+    tab1, tab2 = st.tabs(["Cocoa", "Wheat"])
+    
+    with tab1:
+        fig = px.line(df_listed, y='Cocoa ($/MT)', title="Cocoa Futures (2024-2025)")
+        fig.update_traces(line_color='#8B4513')
+        st.plotly_chart(fig, use_container_width=True)
+    with tab2:
+        fig = px.line(df_listed, y='Wheat ($/Bushel)', title="Wheat Futures")
+        fig.update_traces(line_color='#F5DEB3')
+        st.plotly_chart(fig, use_container_width=True)
+
+elif menu == "🌰 Hazelnut Special Report":
+    st.title("🌰 Unlisted Commodity Focus: Hazelnuts")
+    st.warning("⚠️ **ALERT:** Significant yield reduction projected due to April 2025 Frost Event in Giresun region.")
     
     col1, col2 = st.columns([2, 1])
     
+    df_nuts = get_hazelnut_data()
+    
     with col1:
-        sku_hist = df_sales[df_sales['Product'] == selected_sku]
-        sku_fcst = calculate_forecast(df_sales[df_sales['Product'] == selected_sku])
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sku_hist['Date'], y=sku_hist['Sales_Qty'], name='History', line=dict(color='blue')))
-        fig.add_trace(go.Scatter(x=sku_fcst['Date'], y=sku_fcst['Forecast_Qty'], name='Forecast', line=dict(color='orange', dash='dash')))
-        fig.update_layout(title=f"Demand Signal: {selected_sku}", xaxis_title="Date", yaxis_title="Quantity")
+        st.subheader("Local Exchange Price (Giresun/Ordu)")
+        # Annotate the chart to show the frost event
+        fig = px.line(df_nuts, x='Date', y='Price (TRY/kg)', title="Raw Hazelnut Prices (TRY/kg)")
+        fig.add_vline(x=datetime.datetime(2025, 4, 15).timestamp() * 1000, line_dash="dash", line_color="red", annotation_text="Frost Event")
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
-        st.write("### Forecast Data")
-        st.dataframe(sku_fcst[['Date', 'Forecast_Qty']].style.format({'Forecast_Qty': '{:.0f}'}))
+        st.subheader("Yield Forecast Model")
+        current_yield = 650000 # Tons
+        projected_yield = 480000 # Tons
+        loss_pct = ((current_yield - projected_yield) / current_yield) * 100
         
-        adjustment = st.slider("Manual Override (%)", -20, 20, 0)
-        st.caption(f"Planner Adjustment: {adjustment}%")
-        st.metric("Final Forecast (Next Month)", f"{int(sku_fcst.iloc[0]['Forecast_Qty'] * (1 + adjustment/100))}")
+        st.metric("Pre-Frost Estimate", f"{current_yield:,} Tons")
+        st.metric("Revised Forecast", f"{projected_yield:,} Tons", delta=f"-{loss_pct:.1f}%", delta_color="inverse")
+        st.info("**Analyst Note:** Flowering stage was severely impacted at >500m altitude.")
 
-elif module == "2. Supply Planning":
-    st.title("🚚 Supply Planning & Purchasing")
-    st.markdown("Calculates **Net Requirements** to generate Purchase Orders.")
+elif menu == "🌦️ Climate & Yield Maps":
+    st.title("Climate Risk & Yield Impact")
+    st.markdown("Geospatial analysis of production zones vs. weather anomalies.")
     
-    # Inputs
-    target_dos = st.slider("Global Target Inventory Days", min_value=15, max_value=90, value=45, step=5)
+    df_risk = get_climate_risk_data()
     
-    # Calculation
-    df_fcst = calculate_forecast(df_sales)
-    supply_plan = supply_planning_logic(df_inv, df_fcst, target_dos)
-    
-    # KPIs
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Items Understocked", len(supply_plan[supply_plan['Inventory_Health'] == 'Understocked']), delta_color="inverse")
-    kpi2.metric("Total Net Requirement", f"{supply_plan['Net_Requirement'].sum():,.0f} Units")
-    kpi3.metric("Estimated PO Cost", f"${(supply_plan['Net_Requirement'] * supply_plan['Unit_Cost']).sum():,.0f}")
-    
-    # Detailed Table
-    st.subheader("Purchase Order Recommendations")
-    
-    def color_health(val):
-        color = 'red' if val == 'Understocked' else 'green' if val == 'Healthy' else 'orange'
-        return f'color: {color}; font-weight: bold'
+    # Map Visualization
+    fig = px.scatter_mapbox(
+        df_risk, 
+        lat="Lat", 
+        lon="Lon", 
+        color="Yield_Risk",
+        size=pd.Series([50, 50, 50, 50]), # Bubble size
+        hover_name="Name",
+        hover_data={"Temp_Anomaly": True, "Lat": False, "Lon": False},
+        color_discrete_map={'Critical': 'red', 'High': 'orange', 'Medium': 'yellow', 'Low': 'green'},
+        zoom=6, 
+        center={"lat": 41.0, "lon": 36.0},
+        height=600,
+        title="April 2025 Frost Impact Map"
+    )
+    fig.update_layout(mapbox_style="open-street-map")
+    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.dataframe(supply_plan[[
-        'Product', 'On_Hand_DC', 'On_Order_PO', 'Daily_Demand', 
-        'Target_Stock_Qty', 'Net_Requirement', 'Inventory_Health'
-    ]].style.applymap(color_health, subset=['Inventory_Health'])
-      .format({'Daily_Demand': '{:.1f}', 'Net_Requirement': '{:.0f}'}))
+elif menu == "📰 News & Sentiment":
+    st.title("Agri-Intelligence Feed")
     
-    st.download_button("Download PO CSV", supply_plan.to_csv(), "purchase_orders.csv")
-
-elif module == "3. Inventory Allocation":
-    st.title("📦 Inventory Allocation & Replenishment")
-    st.markdown("Distribute scarce inventory from the DC to Regional Accounts based on **Fair Share**.")
-    
-    selected_sku_alloc = st.selectbox("Select Product to Allocate", df_alloc['Product'].unique())
-    
-    # Context
-    current_dc_stock = df_inv[df_inv['Product'] == selected_sku_alloc]['On_Hand_DC'].values[0]
-    st.write(f"**Available Quantity at DC:** {current_dc_stock} units")
-    
-    allocate_qty = st.number_input("Quantity to Release for Shipment", min_value=0, max_value=int(current_dc_stock), value=int(current_dc_stock*0.5))
-    
-    # Run Algorithm
-    allocation_results = allocation_logic(df_alloc, selected_sku_alloc, allocate_qty)
-    
-    # Visualization
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Projected Coverage (Days)")
-        # Bar chart comparing Current DOS vs Projected DOS
-        
-        fig = go.Figure(data=[
-            go.Bar(name='Current DOS', x=allocation_results['Account'], y=allocation_results['Current_DOS']),
-            go.Bar(name='Projected DOS (After Alloc)', x=allocation_results['Account'], y=allocation_results['Projected_DOS'])
-        ])
-        fig.update_layout(barmode='group', title="Impact of Allocation on Inventory Health")
-        st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Local Signals (Turkey)")
+        st.markdown("""
+        * **2025-04-20:** ❄️ *Ziraat Odası Reports:* "Damage assessment underway in Giresun highlands. Estimates suggest 40% loss in high altitude orchards."
+        * **2025-04-18:** 📉 *Market Update:* Buyers halting procurement anticipating price discovery issues.
+        * **2025-04-15:** 🚨 *Weather Alert:* Sudden temperature drop to -3°C recorded in inner Black Sea region.
+        """)
         
     with col2:
-        st.subheader("Replenishment Orders")
-        st.dataframe(allocation_results[['Account', 'Forecast_Next_30_Days', 'Current_Stock_at_Account', 'Allocated_Qty']].style.background_gradient(subset=['Allocated_Qty'], cmap='Greens'))
-        
-        if st.button("Confirm Allocation Release"):
-            st.success(f"Successfully created Transfer Orders for {allocate_qty} units.")
+        st.subheader("Global Context")
+        st.markdown("""
+        * **Ferrero Update:** Major buyers monitoring Turkish supply closely; Italy crop looking stable.
+        * **Currency Impact:** TRY fluctuation adding complexity to export pricing.
+        """)
