@@ -41,7 +41,8 @@ TRANSLATIONS = {
         "sources_foot": "Sources: FAOSTAT, Wikipedia, USDA",
         "other_opt": "Other (Type Custom)",
         "global_opt": "Global (English)",
-        "local_opt": "Turkey (Local)"
+        "local_opt": "Turkey (Local)",
+        "news_error": "Could not fetch news. Error:"
     },
     "tr": {
         "title": "Letta Earth İstihbarat",
@@ -67,7 +68,8 @@ TRANSLATIONS = {
         "sources_foot": "Kaynaklar: FAOSTAT, Wikipedia, USDA",
         "other_opt": "Diğer (Manuel Giriş)",
         "global_opt": "Küresel (İngilizce)",
-        "local_opt": "Türkiye (Yerel)"
+        "local_opt": "Türkiye (Yerel)",
+        "news_error": "Haberler yüklenemedi. Hata:"
     }
 }
 
@@ -76,7 +78,7 @@ with st.sidebar:
     st.title("Settings / Ayarlar")
     lang_choice = st.radio("Language / Dil", ["English", "Türkçe"])
     lang_code = "tr" if lang_choice == "Türkçe" else "en"
-    t = TRANSLATIONS[lang_code] # Current translation dictionary
+    t = TRANSLATIONS[lang_code]
 
 # --- CUSTOM CSS FOR WIX EMBEDDING ---
 hide_streamlit_style = textwrap.dedent("""
@@ -157,9 +159,8 @@ hide_streamlit_style = textwrap.dedent("""
 """)
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- DATA ENGINE: MAPS & SECTORS ---
+# --- DATA ENGINE ---
 def get_supply_map_data(commodity):
-    """Returns geolocation data for major production hubs."""
     data = {
         "Hazelnuts": [
             {"Region": "Giresun, Turkey", "Lat": 40.91, "Lon": 38.38, "Output": "High", "Risk": "Critical (Frost)"},
@@ -167,7 +168,6 @@ def get_supply_map_data(commodity):
             {"Region": "Viterbo, Italy", "Lat": 42.42, "Lon": 12.10, "Output": "Medium", "Risk": "Low"},
             {"Region": "Oregon, USA", "Lat": 44.94, "Lon": -123.03, "Output": "Low", "Risk": "Low"},
         ],
-        # ... (Other commodities remain same lat/lon, labels can be generic or dynamically mapped if needed)
         "Cocoa": [
             {"Region": "Abidjan, Ivory Coast", "Lat": 5.36, "Lon": -4.00, "Output": "Very High", "Risk": "Medium (Disease)"},
             {"Region": "Accra, Ghana", "Lat": 5.60, "Lon": -0.18, "Output": "High", "Risk": "High (Drought)"},
@@ -204,7 +204,6 @@ def get_supply_map_data(commodity):
     return pd.DataFrame(data.get(commodity, []))
 
 def get_market_balance(commodity):
-    """Returns approx. annual production vs consumption data."""
     market_data = {
         "Hazelnuts": [1.35, 1.28, "Million MT"],
         "Cocoa": [4.90, 5.05, "Million MT"],
@@ -220,52 +219,72 @@ def get_market_balance(commodity):
     return market_data.get(commodity, None)
 
 def get_sector_insights(commodity, lang='en'):
-    """Returns sector usage, status, dynamics, and outlook in selected language."""
-    
-    # ENGLISH DATA
     insights_en = {
         "Hazelnuts": [
-            {"Sector": "Confectionery", "Share": 80, "Status": "🔴 Stressed", "Dynamics": "Supply shock due to frost."},
-            {"Sector": "Snacks & Retail", "Share": 15, "Status": "🟡 Caution", "Dynamics": "Margins squeezing."},
-            {"Sector": "Cosmetics", "Share": 5, "Status": "🟢 Stable", "Dynamics": "Niche market stable."}
+            {"Sector": "Confectionery", "Share": 80, "Status": "🔴 Stressed"},
+            {"Sector": "Snacks & Retail", "Share": 15, "Status": "🟡 Caution"},
+            {"Sector": "Cosmetics", "Share": 5, "Status": "🟢 Stable"}
         ],
-        # ... (Simplified fallback for brevity in this example, usually full dict here)
         "Cocoa": [
-             {"Sector": "Chocolate Mfg", "Share": 65, "Status": "🔴 Critical", "Dynamics": "Structural deficit."},
-             {"Sector": "Cosmetics", "Share": 15, "Status": "🟢 Growing", "Dynamics": "Clean beauty trend."}
+             {"Sector": "Chocolate Mfg", "Share": 65, "Status": "🔴 Critical"},
+             {"Sector": "Cosmetics", "Share": 15, "Status": "🟢 Growing"}
+        ],
+        "Avocados": [
+            {"Sector": "Fresh Retail", "Share": 85, "Status": "🟢 Bullish"},
+            {"Sector": "Oil Processing", "Share": 10, "Status": "🟢 Emerging"}
+        ],
+        "Coffee": [
+            {"Sector": "Specialty Roasters", "Share": 20, "Status": "🟠 Strained"},
+            {"Sector": "Instant/Commercial", "Share": 45, "Status": "🟢 Stable"}
+        ],
+        "Wheat": [
+            {"Sector": "Milling & Baking", "Share": 60, "Status": "🟡 Volatile"}
+        ],
+        "Corn": [
+            {"Sector": "Animal Feed", "Share": 55, "Status": "🟢 Abundant"},
+            {"Sector": "Ethanol", "Share": 35, "Status": "🟡 Risk"}
         ]
     }
-
-    # TURKISH DATA
+    
     insights_tr = {
         "Hazelnuts": [
-            {"Sector": "Şekerleme & Çikolata", "Share": 80, "Status": "🔴 Kritik", "Dynamics": "Don olayı kaynaklı arz şoku."},
-            {"Sector": "Perakende & Kuruyemiş", "Share": 15, "Status": "🟡 Dikkat", "Dynamics": "Marjlar daralıyor."},
-            {"Sector": "Kozmetik", "Share": 5, "Status": "🟢 Stabil", "Dynamics": "Niş pazar dengeli."}
+            {"Sector": "Şekerleme & Çikolata", "Share": 80, "Status": "🔴 Kritik"},
+            {"Sector": "Perakende", "Share": 15, "Status": "🟡 Dikkat"},
+            {"Sector": "Kozmetik", "Share": 5, "Status": "🟢 Stabil"}
         ],
         "Cocoa": [
-             {"Sector": "Çikolata Üretimi", "Share": 65, "Status": "🔴 Kritik", "Dynamics": "Yapısal arz açığı."},
-             {"Sector": "Kozmetik", "Share": 15, "Status": "🟢 Büyüyor", "Dynamics": "Doğal güzellik trendi."}
+             {"Sector": "Çikolata Üretimi", "Share": 65, "Status": "🔴 Kritik"},
+             {"Sector": "Kozmetik", "Share": 15, "Status": "🟢 Büyüyor"}
+        ],
+        "Avocados": [
+            {"Sector": "Perakende", "Share": 85, "Status": "🟢 Yükselişte"},
+            {"Sector": "Yağ Üretimi", "Share": 10, "Status": "🟢 Gelişiyor"}
+        ],
+        "Coffee": [
+            {"Sector": "Özel Kavurucular", "Share": 20, "Status": "🟠 Zorlu"},
+            {"Sector": "Endüstriyel Kahve", "Share": 45, "Status": "🟢 Stabil"}
+        ],
+        "Wheat": [
+            {"Sector": "Un ve Fırıncılık", "Share": 60, "Status": "🟡 Dalgalı"}
+        ],
+        "Corn": [
+            {"Sector": "Hayvan Yemi", "Share": 55, "Status": "🟢 Bol"},
+            {"Sector": "Etanol", "Share": 35, "Status": "🟡 Riskli"}
         ]
     }
     
-    # Mapping fallback for items not fully translated in this snippet
-    # In production, you would duplicate the full dictionary structure for TR
     data_source = insights_tr if lang == 'tr' else insights_en
     
-    # Generic Fallback if specific commodity translation missing
-    default_en = [{"Sector": "General Market", "Share": 100, "Status": "⚪ Normal", "Dynamics": "Market balanced."}]
-    default_tr = [{"Sector": "Genel Pazar", "Share": 100, "Status": "⚪ Normal", "Dynamics": "Pazar dengeli."}]
+    default_en = [{"Sector": "General Market", "Share": 100, "Status": "⚪ Normal"}]
+    default_tr = [{"Sector": "Genel Pazar", "Share": 100, "Status": "⚪ Normal"}]
     default = default_tr if lang == 'tr' else default_en
 
     return pd.DataFrame(data_source.get(commodity, default))
 
 def get_commodity_facts(commodity, lang='en'):
-    """Returns static fact sheet data in selected language."""
-    
     facts_en = {
         "Hazelnuts": {
-            "producers": "Turkey (~70%), Italy, Azerbaijan, USA (Oregon).",
+            "producers": "Turkey (~70%), Italy, Azerbaijan.",
             "uses": "Confectionery, baking, oil extraction.",
             "desc": "The hazelnut is the nut of the hazel genus, widely used in pralines and spreads."
         },
@@ -274,21 +293,99 @@ def get_commodity_facts(commodity, lang='en'):
             "uses": "Chocolate, Cocoa butter, Cocoa powder.",
             "desc": "Cocoa beans are fermented seeds of Theobroma cacao, essential for chocolate."
         },
-        # ... Add other EN entries
+        "Avocados": {
+            "producers": "Mexico, Peru, Indonesia.",
+            "uses": "Fresh consumption, oil, cosmetics.",
+            "desc": "The avocado is a tree native to the Americas, prized for its rich, oily fruit."
+        },
+        "Coffee": {
+            "producers": "Brazil, Vietnam, Colombia.",
+            "uses": "Beverage, flavoring, caffeine.",
+            "desc": "Coffee is a brewed drink prepared from roasted coffee beans."
+        },
+        "Wheat": {
+            "producers": "China, India, Russia, USA.",
+            "uses": "Flour (bread, pasta), animal feed.",
+            "desc": "Wheat is a grass cultivated worldwide for its seed, a cereal grain staple."
+        },
+        "Corn": {
+            "producers": "USA, China, Brazil.",
+            "uses": "Animal feed, ethanol, food.",
+            "desc": "Maize, also known as corn, is a cereal grain first domesticated in Mexico."
+        },
+        "Cotton": {
+            "producers": "China, India, USA.",
+            "uses": "Textiles, oil, feed.",
+            "desc": "Cotton is a soft, fluffy staple fiber that grows in a boll around seeds."
+        },
+        "Sugar": {
+            "producers": "Brazil, India, EU.",
+            "uses": "Sweetener, ethanol, preservatives.",
+            "desc": "Sugar is the generic name for sweet-tasting, soluble carbohydrates."
+        },
+        "Soybeans": {
+            "producers": "Brazil, USA, Argentina.",
+            "uses": "Animal feed, oil, tofu.",
+            "desc": "The soybean is a species of legume native to East Asia."
+        },
+        "Palm Oil": {
+            "producers": "Indonesia, Malaysia.",
+            "uses": "Cooking oil, biofuels, soap.",
+            "desc": "Palm oil is an edible vegetable oil derived from the mesocarp of oil palms."
+        }
     }
 
     facts_tr = {
         "Hazelnuts": {
-            "producers": "Türkiye (~%70), İtalya, Azerbaycan, ABD.",
-            "uses": "Şekerleme, pastacılık, yağ çıkarımı.",
+            "producers": "Türkiye (~%70), İtalya, Azerbaycan.",
+            "uses": "Şekerleme, pastacılık, yağ.",
             "desc": "Fındık, özellikle çikolata ve ezme yapımında kullanılan değerli bir sert kabuklu meyvedir."
         },
         "Cocoa": {
             "producers": "Fildişi Sahili (~%40), Gana, Endonezya.",
-            "uses": "Çikolata, Kakao yağı, Kakao tozu.",
-            "desc": "Kakao çekirdekleri, çikolatanın ana maddesi olan Theobroma cacao ağacının fermente edilmiş tohumlarıdır."
+            "uses": "Çikolata, Kakao yağı, toz.",
+            "desc": "Kakao çekirdekleri, çikolatanın ana maddesi olan Theobroma cacao ağacının tohumlarıdır."
         },
-        # ... Add other TR entries
+        "Avocados": {
+            "producers": "Meksika, Peru, Endonezya.",
+            "uses": "Taze tüketim, yağ, kozmetik.",
+            "desc": "Avokado, Amerika kökenli, yağlı meyvesiyle bilinen bir ağaç türüdür."
+        },
+        "Coffee": {
+            "producers": "Brezilya, Vietnam, Kolombiya.",
+            "uses": "İçecek, aroma, kafein.",
+            "desc": "Kahve, kavrulmuş kahve çekirdeklerinden demlenen popüler bir içecektir."
+        },
+        "Wheat": {
+            "producers": "Çin, Hindistan, Rusya.",
+            "uses": "Un (ekmek, makarna), yem.",
+            "desc": "Buğday, tohumu için yetiştirilen ve dünya çapında temel besin olan bir tahıldır."
+        },
+        "Corn": {
+            "producers": "ABD, Çin, Brezilya.",
+            "uses": "Hayvan yemi, etanol, gıda.",
+            "desc": "Mısır, ilk olarak Meksika'da evcilleştirilmiş bir tahıl bitkisidir."
+        },
+        "Cotton": {
+            "producers": "Çin, Hindistan, ABD.",
+            "uses": "Tekstil, yağ, yem.",
+            "desc": "Pamuk, tohumları saran yumuşak, kabarık liflerden oluşan değerli bir bitkidir."
+        },
+        "Sugar": {
+            "producers": "Brezilya, Hindistan, AB.",
+            "uses": "Tatlandırıcı, etanol, koruyucu.",
+            "desc": "Şeker, gıdalarda kullanılan tatlı ve çözünür karbonhidratların genel adıdır."
+        },
+        "Soybeans": {
+            "producers": "Brezilya, ABD, Arjantin.",
+            "uses": "Hayvan yemi, yağ, tofu.",
+            "desc": "Soya fasulyesi, Doğu Asya kökenli, çok yönlü kullanıma sahip bir baklagildir."
+        },
+        "Palm Oil": {
+            "producers": "Endonezya, Malezya.",
+            "uses": "Yemeklik yağ, biyoyakıt, sabun.",
+            "desc": "Palm yağı, yağ palmiyesinin meyvesinden elde edilen bitkisel bir yağdır."
+        }
     }
 
     data_source = facts_tr if lang == 'tr' else facts_en
@@ -299,7 +396,7 @@ def get_commodity_facts(commodity, lang='en'):
     
     return data_source.get(commodity, default)
 
-# --- NEWS ENGINE (RSS) ---
+# --- NEWS ENGINE ---
 @st.cache_data(ttl=3600)
 def fetch_news(query, region='Global'):
     if region == 'Turkey':
@@ -359,19 +456,15 @@ st.markdown(t["subtitle"])
 # Global Controls
 col1, col2 = st.columns([1, 1])
 with col1:
-    # Translate Preset Options for Dropdown Display
     presets_en = ["Hazelnuts", "Cocoa", "Avocados", "Coffee", "Wheat", "Corn", "Soybeans", "Palm Oil", "Cotton", "Sugar", t["other_opt"]]
-    
     choice = st.selectbox(t["select_lbl"], presets_en)
     
-    # Clean logic to handle both languages in selection
     if choice == t["other_opt"]:
         selected_commodity = st.text_input(t["custom_lbl"], value="Rice")
     else:
         selected_commodity = choice
 
 with col2:
-    # Smart default: If Language is TR, default to Local News
     default_idx = 1 if lang_code == 'tr' else 0
     region_toggle = st.radio(
         t["source_lbl"], 
@@ -406,7 +499,6 @@ with c_map:
         st.warning("Map data not available.")
 
 with c_table:
-    # 1. Sector Table
     st.subheader(t["sector_insights"])
     sector_df = get_sector_insights(selected_commodity, lang=lang_code)
     st.dataframe(
@@ -424,7 +516,6 @@ with c_table:
         }
     )
     
-    # 2. Global Market Balance
     st.write("")
     st.markdown(f"**{t['market_balance']}**")
     market_stats = get_market_balance(selected_commodity)
@@ -433,14 +524,12 @@ with c_table:
         m1, m2, m3 = st.columns(3)
         prod, cons, unit = market_stats
         balance = prod - cons
-        
         m1.metric(t["production"], f"{prod}", unit)
         m2.metric(t["consumption"], f"{cons}", unit)
-        m3.metric(t["balance"], f"{balance:+.2f}", t["surplus"], delta_color="normal" if balance >= 0 else "inverse")
+        m3.metric(t["balance"], f"{balance:+.2f}", t["surplus"], delta_color="normal")
     else:
         st.caption("N/A")
 
-    # 3. Fact Sheet
     st.write("")
     st.subheader(t["fact_sheet"])
     facts = get_commodity_facts(selected_commodity, lang=lang_code)
@@ -466,7 +555,7 @@ with c_table:
 
 st.divider()
 
-# --- BOTTOM SECTION: NEWS GRID ---
+# --- BOTTOM SECTION: NEWS ---
 st.subheader(f"{t['news_header']}: {selected_commodity}")
 
 try:
