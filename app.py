@@ -13,96 +13,97 @@ st.set_page_config(
 )
 
 # --- CUSTOM CSS FOR WIX EMBEDDING ---
+# Note: Indentation removed to prevent Markdown code-block rendering
 hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .block-container {padding-top: 1rem;}
-            
-            /* NEWS GRID */
-            .news-card {
-                background-color: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 12px;
-                padding: 20px;
-                margin-bottom: 20px;
-                height: 220px;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-                transition: transform 0.2s, box-shadow 0.2s;
-            }
-            .news-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-                border-color: #4a90e2;
-            }
-            .news-title {
-                font-size: 16px;
-                font-weight: 700;
-                color: #2c3e50;
-                line-height: 1.4;
-                overflow: hidden;
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-            }
-            .news-meta {
-                font-size: 11px;
-                color: #95a5a6;
-                margin-bottom: 10px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .read-more-btn {
-                background-color: #f8f9fa;
-                color: #4a90e2;
-                border: 1px solid #4a90e2;
-                padding: 8px 0;
-                border-radius: 6px;
-                text-align: center;
-                font-size: 13px;
-                font-weight: 600;
-                text-decoration: none;
-                display: block;
-                transition: background 0.2s;
-            }
-            .read-more-btn:hover {
-                background-color: #4a90e2;
-                color: white;
-            }
-            
-            /* DETAILED SECTOR CARD STYLING */
-            .sector-container {
-                background-color: #ffffff;
-                border: 1px solid #e0e0e0;
-                border-radius: 12px;
-                padding: 25px;
-                margin-bottom: 25px;
-                border-left: 6px solid #2c3e50;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            }
-            .sector-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 15px;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 10px;
-            }
-            .sector-title { font-size: 22px; font-weight: 800; color: #2c3e50; }
-            .sector-share { font-size: 14px; background: #eef2f7; padding: 4px 10px; border-radius: 20px; color: #555; font-weight: 600; }
-            .sector-status { font-size: 16px; font-weight: bold; }
-            
-            .insight-section { margin-top: 15px; }
-            .insight-label { font-size: 13px; text-transform: uppercase; color: #95a5a6; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
-            .insight-text { font-size: 15px; line-height: 1.6; color: #34495e; margin-bottom: 20px; text-align: justify; }
-            
-            a {text-decoration: none;}
-            </style>
-            """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.block-container {padding-top: 1rem;}
+
+/* NEWS GRID */
+.news-card {
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.news-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    border-color: #4a90e2;
+}
+.news-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2c3e50;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+.news-meta {
+    font-size: 11px;
+    color: #95a5a6;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.read-more-btn {
+    background-color: #f8f9fa;
+    color: #4a90e2;
+    border: 1px solid #4a90e2;
+    padding: 8px 0;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    display: block;
+    transition: background 0.2s;
+}
+.read-more-btn:hover {
+    background-color: #4a90e2;
+    color: white;
+}
+
+/* DETAILED SECTOR CARD STYLING */
+.sector-container {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border-left: 6px solid #2c3e50;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.sector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+.sector-title { font-size: 22px; font-weight: 800; color: #2c3e50; }
+.sector-share { font-size: 14px; background: #eef2f7; padding: 4px 10px; border-radius: 20px; color: #555; font-weight: 600; }
+.sector-status { font-size: 16px; font-weight: bold; }
+
+.insight-section { margin-top: 15px; }
+.insight-label { font-size: 13px; text-transform: uppercase; color: #95a5a6; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
+.insight-text { font-size: 15px; line-height: 1.6; color: #34495e; margin-bottom: 20px; text-align: justify; }
+
+a {text-decoration: none;}
+</style>
+"""
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # --- DATA ENGINE: MAPS & SECTORS ---
@@ -308,17 +309,19 @@ with tab_news:
                 cols = st.columns(3)
                 for idx, item in enumerate(row_items):
                     with cols[idx]:
-                        st.markdown(f"""
-                        <div class="news-card">
-                            <div>
-                                <div class="news-meta">{item['source']} • {item['published']}</div>
-                                <div class="news-title">{item['title']}</div>
-                            </div>
-                            <a href="{item['link']}" target="_blank" class="read-more-btn">
-                                Read Article ↗
-                            </a>
-                        </div>
-                        """, unsafe_allow_html=True)       
+                        # Removed indentation inside markdown string to prevent code block rendering
+                        html_content = f"""
+<div class="news-card">
+    <div>
+        <div class="news-meta">{item['source']} • {item['published']}</div>
+        <div class="news-title">{item['title']}</div>
+    </div>
+    <a href="{item['link']}" target="_blank" class="read-more-btn">
+        Read Article ↗
+    </a>
+</div>
+"""
+                        st.markdown(html_content, unsafe_allow_html=True)       
     except Exception as e:
         st.error(f"Could not load news feed. Connection error to Google RSS. {e}")
 
@@ -353,24 +356,26 @@ with tab_map:
     sectors = get_sector_insights(selected_commodity)
     
     for sec in sectors:
-        st.markdown(f"""
-        <div class="sector-container">
-            <div class="sector-header">
-                <div>
-                    <span class="sector-title">{sec['Sector']}</span>
-                    <span class="sector-share">Share: {sec['Share']}</span>
-                </div>
-                <div class="sector-status">{sec['Status']}</div>
-            </div>
-            
-            <div class="insight-section">
-                <div class="insight-label">Market Dynamics</div>
-                <div class="insight-text">{sec['Dynamics']}</div>
-            </div>
-            
-            <div class="insight-section">
-                <div class="insight-label">Strategic Outlook</div>
-                <div class="insight-text">{sec['Outlook']}</div>
-            </div>
+        # Removed indentation inside markdown string to prevent code block rendering
+        html_content = f"""
+<div class="sector-container">
+    <div class="sector-header">
+        <div>
+            <span class="sector-title">{sec['Sector']}</span>
+            <span class="sector-share">Share: {sec['Share']}</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="sector-status">{sec['Status']}</div>
+    </div>
+    
+    <div class="insight-section">
+        <div class="insight-label">Market Dynamics</div>
+        <div class="insight-text">{sec['Dynamics']}</div>
+    </div>
+    
+    <div class="insight-section">
+        <div class="insight-label">Strategic Outlook</div>
+        <div class="insight-text">{sec['Outlook']}</div>
+    </div>
+</div>
+"""
+        st.markdown(html_content, unsafe_allow_html=True)
