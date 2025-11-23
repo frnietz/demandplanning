@@ -141,6 +141,23 @@ def get_supply_map_data(commodity):
     }
     return pd.DataFrame(data.get(commodity, []))
 
+def get_market_balance(commodity):
+    """Returns approx. annual production vs consumption data (Source: USDA/Industry Est)."""
+    # Data Format: [Production, Consumption, Unit]
+    market_data = {
+        "Hazelnuts": [1.35, 1.28, "Million MT"], # INC Estimate
+        "Cocoa": [4.90, 5.05, "Million MT"],     # ICCO (Deficit year)
+        "Avocados": [9.20, 8.90, "Million MT"],  # WAO
+        "Coffee": [171.4, 169.5, "Million Bags"],# USDA FAS
+        "Wheat": [787.3, 790.2, "Million MT"],   # USDA (Tight)
+        "Corn": [1222, 1208, "Million MT"],      # USDA (Surplus)
+        "Soybeans": [396, 382, "Million MT"],    # USDA
+        "Palm Oil": [79.5, 77.2, "Million MT"],  # USDA
+        "Cotton": [113.5, 115.8, "Million Bales"], # USDA
+        "Sugar": [183.5, 180.2, "Million MT"],   # ISO
+    }
+    return market_data.get(commodity, None)
+
 def get_sector_insights(commodity):
     """Returns sector usage, status, dynamics, and outlook."""
     insights = {
@@ -283,9 +300,7 @@ def fetch_news(query, region='Global'):
             try:
                 soup = BeautifulSoup(raw_summary, "html.parser")
                 clean_summary = soup.get_text()
-                # Remove common Google News prefix like "Source - " if simple heuristics allow, 
-                # but raw text is usually safer to avoid deleting real content.
-                if len(clean_summary) > 200: # Truncate for UI
+                if len(clean_summary) > 200:
                     clean_summary = clean_summary[:200] + "..."
             except Exception:
                 clean_summary = raw_summary[:200]
@@ -322,7 +337,7 @@ with col2:
 
 st.divider()
 
-# --- TOP SECTION: INTELLIGENCE (Map + Table + Fact Sheet) ---
+# --- TOP SECTION: INTELLIGENCE ---
 c_map, c_table = st.columns([1.5, 1])
 
 with c_map:
@@ -363,12 +378,27 @@ with c_table:
         }
     )
     
-    # 2. Fact Sheet (Replaces Price Chart)
-    st.write("") # Spacer
+    # 2. Global Market Balance (New)
+    st.write("")
+    st.markdown("**📊 Global Market Balance (Est. 2024/25)**")
+    market_stats = get_market_balance(selected_commodity)
+    
+    if market_stats:
+        m1, m2, m3 = st.columns(3)
+        prod, cons, unit = market_stats
+        balance = prod - cons
+        
+        m1.metric("Production", f"{prod}", unit)
+        m2.metric("Consumption", f"{cons}", unit)
+        m3.metric("Balance", f"{balance:+.2f}", "Surplus/Deficit", delta_color="normal" if balance >= 0 else "inverse")
+    else:
+        st.caption("Market balance data not available for custom selection.")
+
+    # 3. Fact Sheet
+    st.write("")
     st.subheader("📋 Product Fact Sheet")
     facts = get_commodity_facts(selected_commodity)
     
-    # Styled Fact Sheet Card
     html_content = textwrap.dedent(f"""
         <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee;">
             <div style="font-size: 14px; color: #555; margin-bottom: 8px;">
@@ -405,7 +435,6 @@ try:
             cols = st.columns(3)
             for idx, item in enumerate(row_items):
                 with cols[idx]:
-                    # Generate Summary-Enhanced Card
                     html_content = textwrap.dedent(f"""
                         <div class="news-card">
                             <div>
