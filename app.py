@@ -2,6 +2,7 @@ import streamlit as st
 import feedparser
 import pandas as pd
 import plotly.express as px
+import numpy as np
 import time
 import textwrap
 
@@ -155,6 +156,35 @@ def get_sector_insights(commodity):
     default = [{"Sector": "General Market", "Share": "100%", "Status": "⚪ Normal", "Dynamics": "Market balanced."}]
     return pd.DataFrame(insights.get(commodity, default))
 
+def get_price_history(commodity):
+    """Generates mock price history (Sparkline) for the selected commodity."""
+    dates = pd.date_range(end=pd.Timestamp.now(), periods=90)
+    
+    # Base prices (Approximate USD or Index values)
+    base_price = {
+        "Hazelnuts": 750, # Index
+        "Cocoa": 9200,    # USD/MT (High)
+        "Avocados": 45,   # Box
+        "Coffee": 240,    # Cents/lb
+        "Wheat": 580,     # Cents/bu
+        "Corn": 430,
+        "Soybeans": 1150,
+        "Palm Oil": 3900,
+        "Cotton": 82,
+        "Sugar": 22
+    }.get(commodity, 100) # Default for custom
+
+    # Create random walk with trend
+    prices = [base_price]
+    np.random.seed(42) # For consistent "random" charts per reload
+    for _ in range(89):
+        # Add commodity-specific volatility
+        volatility = base_price * 0.025
+        change = np.random.normal(0, volatility)
+        prices.append(max(0, prices[-1] + change))
+    
+    return pd.DataFrame({"Date": dates, "Price": prices})
+
 # --- NEWS ENGINE (RSS) ---
 @st.cache_data(ttl=3600)
 def fetch_news(query, region='Global'):
@@ -215,7 +245,7 @@ with col2:
 
 st.divider()
 
-# --- TOP SECTION: INTELLIGENCE (Map + Table) ---
+# --- TOP SECTION: INTELLIGENCE (Map + Table + Chart) ---
 c_map, c_table = st.columns([1.5, 1])
 
 with c_map:
@@ -230,7 +260,7 @@ with c_map:
                 'Critical (Frost)': '#d62728', 'High (Frost)': '#ff7f0e',
                 'High (Drought)': '#ff7f0e', 'High (Geopolitics)': '#ff7f0e',
                 'Medium': '#bcbd22', 'Low': '#2ca02c'
-            }, zoom=0.5, height=300
+            }, zoom=0.5, height=350
         )
         fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
         st.plotly_chart(fig, use_container_width=True)
@@ -238,6 +268,7 @@ with c_map:
         st.warning("Supply map data not available.")
 
 with c_table:
+    # 1. Sector Table
     st.subheader("🏭 Sector Insights")
     sector_df = get_sector_insights(selected_commodity)
     st.dataframe(
@@ -249,6 +280,25 @@ with c_table:
             "Share": st.column_config.ProgressColumn("Usage %", format="%s", min_value=0, max_value=100),
         }
     )
+    
+    # 2. Price Chart (New)
+    st.write("") # Spacer
+    st.markdown("**📉 90-Day Price Trend**")
+    price_df = get_price_history(selected_commodity)
+    
+    # Create Google-style Sparkline Area Chart
+    fig_price = px.area(price_df, x='Date', y='Price', height=150)
+    fig_price.update_traces(line_color='#4a90e2', fillcolor='rgba(74, 144, 226, 0.2)')
+    fig_price.update_layout(
+        margin=dict(l=0, r=0, t=10, b=0),
+        xaxis_title=None,
+        yaxis_title=None,
+        showlegend=False,
+        plot_bgcolor='white',
+        xaxis=dict(showgrid=False, showticklabels=False), # Minimalist axis
+        yaxis=dict(showgrid=True, gridcolor='#eee', showticklabels=True)
+    )
+    st.plotly_chart(fig_price, use_container_width=True, config={'displayModeBar': False})
 
 st.divider()
 
