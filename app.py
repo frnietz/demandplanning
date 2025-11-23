@@ -173,8 +173,9 @@ def fetch_news(query, region='Global'):
     feed = feedparser.parse(feed_url)
     
     news_items = []
-    # Fetch 12 items to fill a 3x4 grid perfectly
-    for entry in feed.entries[:12]:
+    # Collect all items first
+    for entry in feed.entries:
+        # Parse the date struct for sorting
         published_parsed = entry.get('published_parsed', time.gmtime())
         date_str = time.strftime("%d %b %Y", published_parsed)
         
@@ -182,9 +183,15 @@ def fetch_news(query, region='Global'):
             'title': entry.title,
             'link': entry.link,
             'published': date_str,
+            'timestamp': published_parsed, # Hidden field for sorting
             'source': entry.source.title if 'source' in entry else 'Google News'
         })
-    return news_items
+    
+    # Sort chronologically (Newest first)
+    news_items.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    # Return top 12 for the grid
+    return news_items[:12]
 
 # --- MAIN APP LAYOUT ---
 
