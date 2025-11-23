@@ -5,7 +5,6 @@ import plotly.express as px
 import numpy as np
 import time
 import textwrap
-import yfinance as yf
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -157,55 +156,79 @@ def get_sector_insights(commodity):
     default = [{"Sector": "General Market", "Share": "100%", "Status": "⚪ Normal", "Dynamics": "Market balanced."}]
     return pd.DataFrame(insights.get(commodity, default))
 
-@st.cache_data(ttl=3600)
-def get_price_history(commodity):
-    """
-    Fetches REAL price history from Yahoo Finance for listed commodities.
-    Uses mock simulation for unlisted commodities (Hazelnuts, Avocados).
-    """
-    # Map Commodity Names to Yahoo Finance Tickers
-    ticker_map = {
-        "Cocoa": "CC=F",      # ICE Cocoa Futures
-        "Coffee": "KC=F",     # Coffee C Futures
-        "Wheat": "ZW=F",      # Chicago Wheat
-        "Corn": "ZC=F",       # Corn Futures
-        "Soybeans": "ZS=F",   # Soybean Futures
-        "Cotton": "CT=F",     # Cotton No. 2
-        "Sugar": "SB=F",      # Sugar No. 11
-        "Palm Oil": "FCPO.KL" # Bursa Malaysia (Might require different data permission, fallback mock if fails)
+def get_commodity_facts(commodity):
+    """Returns static fact sheet data from curated knowledge base."""
+    data = {
+        "Hazelnuts": {
+            "origin": "Native to the temperate Northern Hemisphere.",
+            "producers": "Turkey (~70%), Italy, Azerbaijan, USA (Oregon).",
+            "uses": "Confectionery (pralines, spreads), baking, oil extraction.",
+            "desc": "The hazelnut is the nut of the hazel and therefore includes any of the nuts deriving from species of the genus Corylus, especially the nuts of the species Corylus avellana."
+        },
+        "Cocoa": {
+            "origin": "Upper Amazon basin.",
+            "producers": "Ivory Coast (~40%), Ghana, Indonesia, Ecuador.",
+            "uses": "Chocolate, Cocoa butter (cosmetics), Cocoa powder.",
+            "desc": "Cocoa beans are the dried and fully fermented seeds of Theobroma cacao, from which cocoa solids and cocoa butter can be extracted."
+        },
+        "Avocados": {
+            "origin": "South Central Mexico.",
+            "producers": "Mexico, Peru, Indonesia, Colombia.",
+            "uses": "Fresh consumption (guacamole), oil, cosmetics.",
+            "desc": "The avocado (Persea americana) is a medium-sized, evergreen tree in the laurel family. It is native to the Americas and was first domesticated by Mesoamerican tribes."
+        },
+        "Coffee": {
+            "origin": "Ethiopia (Arabica) / West Africa (Robusta).",
+            "producers": "Brazil, Vietnam, Colombia, Indonesia.",
+            "uses": "Beverage, flavoring, caffeine extraction.",
+            "desc": "Coffee is a brewed drink prepared from roasted coffee beans, the seeds of berries from certain Coffea species."
+        },
+        "Wheat": {
+            "origin": "Fertile Crescent (Middle East).",
+            "producers": "China, India, Russia, USA, France.",
+            "uses": "Flour (bread, pasta, pastry), animal feed, ethanol.",
+            "desc": "Wheat is a grass widely cultivated for its seed, a cereal grain which is a worldwide staple food."
+        },
+        "Corn": {
+            "origin": "Southern Mexico.",
+            "producers": "USA, China, Brazil, Argentina.",
+            "uses": "Animal feed, ethanol, high-fructose corn syrup, human food.",
+            "desc": "Maize, also known as corn, is a cereal grain first domesticated by indigenous peoples in southern Mexico about 10,000 years ago."
+        },
+        "Soybeans": {
+            "origin": "East Asia.",
+            "producers": "Brazil, USA, Argentina.",
+            "uses": "Animal feed (meal), oil, tofu, soy milk.",
+            "desc": "The soybean (Glycine max) is a species of legume native to East Asia, widely grown for its edible bean, which has numerous uses."
+        },
+        "Palm Oil": {
+            "origin": "West Africa.",
+            "producers": "Indonesia, Malaysia, Thailand.",
+            "uses": "Cooking oil, processed foods, biofuels, soaps.",
+            "desc": "Palm oil is an edible vegetable oil derived from the mesocarp (reddish pulp) of the fruit of the oil palms."
+        },
+        "Cotton": {
+            "origin": "Independently in Old and New Worlds.",
+            "producers": "China, India, USA, Brazil.",
+            "uses": "Textiles, cottonseed oil, animal feed.",
+            "desc": "Cotton is a soft, fluffy staple fiber that grows in a boll, or protective case, around the seeds of the cotton plants of the genus Gossypium."
+        },
+        "Sugar": {
+            "origin": "New Guinea (Cane) / Europe (Beet).",
+            "producers": "Brazil, India, EU, Thailand, China.",
+            "uses": "Sweetener, ethanol, preservatives.",
+            "desc": "Sugar is the generic name for sweet-tasting, soluble carbohydrates, many of which are used in food. Primary sources are Sugarcane and Sugar Beet."
+        }
     }
-
-    ticker = ticker_map.get(commodity)
-
-    if ticker:
-        try:
-            # Fetch real data (last 3 months)
-            df = yf.download(ticker, period="3mo", interval="1d", progress=False)
-            if not df.empty:
-                df = df.reset_index()
-                # Ensure we just get Date and Close
-                df = df[['Date', 'Close']]
-                df.columns = ['Date', 'Price']
-                return df
-        except Exception:
-            pass # Fallback to mock if API fails
-
-    # --- MOCK FALLBACK (For Hazelnuts, Avocados, or API Errors) ---
-    dates = pd.date_range(end=pd.Timestamp.now(), periods=90)
-    base_price = {
-        "Hazelnuts": 750, 
-        "Avocados": 45, 
-        "Palm Oil": 3900 # Fallback
-    }.get(commodity, 100)
-
-    prices = [base_price]
-    np.random.seed(42) 
-    for _ in range(89):
-        volatility = base_price * 0.02
-        change = np.random.normal(0, volatility)
-        prices.append(max(0, prices[-1] + change))
     
-    return pd.DataFrame({"Date": dates, "Price": prices})
+    default = {
+        "origin": "Global.",
+        "producers": "Varies by specific type.",
+        "uses": "Food, industrial applications.",
+        "desc": f"{commodity} is a widely traded global commodity."
+    }
+    
+    return data.get(commodity, default)
 
 # --- NEWS ENGINE (RSS) ---
 @st.cache_data(ttl=3600)
@@ -267,7 +290,7 @@ with col2:
 
 st.divider()
 
-# --- TOP SECTION: INTELLIGENCE (Map + Table + Chart) ---
+# --- TOP SECTION: INTELLIGENCE (Map + Table + Fact Sheet) ---
 c_map, c_table = st.columns([1.5, 1])
 
 with c_map:
@@ -303,31 +326,30 @@ with c_table:
         }
     )
     
-    # 2. Price Chart (Now REAL for Listed, MOCK for Unlisted)
+    # 2. Fact Sheet (Replaces Price Chart)
     st.write("") # Spacer
-    st.markdown("**📉 90-Day Price Trend**")
-    price_df = get_price_history(selected_commodity)
+    st.subheader("📋 Product Fact Sheet")
+    facts = get_commodity_facts(selected_commodity)
     
-    # Calculate Trend
-    start_price = price_df.iloc[0]['Price']
-    end_price = price_df.iloc[-1]['Price']
-    delta = ((end_price - start_price) / start_price) * 100
-    color = '#2ecc71' if delta >= 0 else '#e74c3c' # Green if up, Red if down
-    
-    # Create Google-style Sparkline Area Chart
-    fig_price = px.area(price_df, x='Date', y='Price', height=150)
-    fig_price.update_traces(line_color=color, fillcolor=color.replace(')', ', 0.1)').replace('rgb', 'rgba'))
-    fig_price.update_layout(
-        margin=dict(l=0, r=0, t=20, b=0),
-        xaxis_title=None,
-        yaxis_title=None,
-        showlegend=False,
-        plot_bgcolor='white',
-        xaxis=dict(showgrid=False, showticklabels=False), # Minimalist axis
-        yaxis=dict(showgrid=True, gridcolor='#eee', showticklabels=True),
-        title=dict(text=f"Trend: {delta:+.2f}%", font=dict(size=12, color=color), x=0.05, y=0.95)
-    )
-    st.plotly_chart(fig_price, use_container_width=True, config={'displayModeBar': False})
+    # Styled Fact Sheet Card
+    html_content = textwrap.dedent(f"""
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee;">
+            <div style="font-size: 14px; color: #555; margin-bottom: 8px;">
+                <strong>Scientific Description:</strong><br>
+                <span style="font-style: italic;">{facts['desc']}</span>
+            </div>
+            <div style="font-size: 14px; color: #555; margin-bottom: 8px;">
+                <strong>🌍 Top Producers:</strong> {facts['producers']}
+            </div>
+            <div style="font-size: 14px; color: #555; margin-bottom: 8px;">
+                <strong>🏭 Primary Uses:</strong> {facts['uses']}
+            </div>
+             <div style="font-size: 12px; color: #999; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px;">
+                Sources: FAOSTAT, Wikipedia, USDA
+            </div>
+        </div>
+    """)
+    st.markdown(html_content, unsafe_allow_html=True)
 
 st.divider()
 
