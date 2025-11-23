@@ -19,20 +19,64 @@ hide_streamlit_style = """
             footer {visibility: hidden;}
             header {visibility: hidden;}
             .block-container {padding-top: 1rem;}
+            
+            /* GRID CARD STYLING */
             .news-card {
-                background-color: #f9f9f9;
-                padding: 15px;
-                border-radius: 10px;
-                margin-bottom: 10px;
-                border-left: 5px solid #4a90e2;
-                transition: transform 0.2s;
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 20px;
+                height: 220px; /* Fixed height for grid alignment */
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                transition: transform 0.2s, box-shadow 0.2s;
             }
             .news-card:hover {
-                transform: scale(1.01);
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                border-color: #4a90e2;
             }
-            .news-title {font-size: 18px; font-weight: bold; color: #333;}
-            .news-meta {font-size: 12px; color: #666;}
+            .news-title {
+                font-size: 16px;
+                font-weight: 700;
+                color: #2c3e50;
+                line-height: 1.4;
+                margin-bottom: 10px;
+                /* Limit title lines */
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+            }
+            .news-meta {
+                font-size: 11px;
+                color: #95a5a6;
+                margin-bottom: 15px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .read-more-btn {
+                background-color: #f8f9fa;
+                color: #4a90e2;
+                border: 1px solid #4a90e2;
+                padding: 8px 0;
+                border-radius: 6px;
+                text-align: center;
+                font-size: 13px;
+                font-weight: 600;
+                text-decoration: none;
+                display: block;
+                transition: background 0.2s;
+            }
+            .read-more-btn:hover {
+                background-color: #4a90e2;
+                color: white;
+            }
+            
+            /* SECTOR CARD STYLING */
             .sector-card {
                 background-color: #ffffff;
                 padding: 20px;
@@ -129,11 +173,15 @@ def fetch_news(query, region='Global'):
     feed = feedparser.parse(feed_url)
     
     news_items = []
-    for entry in feed.entries[:15]:
+    # Fetch 12 items to fill a 3x4 grid perfectly
+    for entry in feed.entries[:12]:
+        published_parsed = entry.get('published_parsed', time.gmtime())
+        date_str = time.strftime("%d %b %Y", published_parsed)
+        
         news_items.append({
             'title': entry.title,
             'link': entry.link,
-            'published': entry.published,
+            'published': date_str,
             'source': entry.source.title if 'source' in entry else 'Google News'
         })
     return news_items
@@ -168,17 +216,26 @@ with tab_news:
         if not news_data:
             st.info("No recent news found. Try a different region or commodity.")
         else:
-            for item in news_data:
-                st.markdown(f"""
-                <div class="news-card">
-                    <a href="{item['link']}" target="_blank">
-                        <div class="news-title">{item['title']}</div>
-                    </a>
-                    <div class="news-meta">
-                        Source: <b>{item['source']}</b> | {item['published']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # GRID LAYOUT LOGIC
+            # We will create rows of 3 columns
+            for i in range(0, len(news_data), 3):
+                row_items = news_data[i:i+3]
+                cols = st.columns(3)
+                
+                for idx, item in enumerate(row_items):
+                    with cols[idx]:
+                        st.markdown(f"""
+                        <div class="news-card">
+                            <div>
+                                <div class="news-meta">{item['source']} • {item['published']}</div>
+                                <div class="news-title">{item['title']}</div>
+                            </div>
+                            <a href="{item['link']}" target="_blank" class="read-more-btn">
+                                Read Article ↗
+                            </a>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
     except Exception as e:
         st.error(f"Could not load news feed. Connection error to Google RSS. {e}")
 
